@@ -1,8 +1,9 @@
+
 services:
   - type: web
     name: route-optimizer-ai
     env: node
-    plan: free
+    plan: starter
     buildCommand: "npm install"
     startCommand: "node server.js"
     envVars:
@@ -10,6 +11,3 @@ services:
         sync: false
     healthCheckPath: /
     autoDeploy: true
-    # Optional: Set a fixed Node version if desired
-    # runtime: "node"
-    # nodeVersion: "18"

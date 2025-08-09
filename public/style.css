@@ -1,62 +1,19 @@
 
-:root{
-  --bg:#0b1020;
-  --panel:#11182e;
-  --muted:#9aa4c7;
-  --text:#e8ecff;
-  --accent:#7aa2ff;
-  --accent-2:#61d3a6;
-  --border:#263151;
-  --bad:#ff7a8a;
-}
-*{box-sizing:border-box}
-html,body,#app{height:100%;margin:0}
+:root{--bg:#0b1020;--panel:#11182e;--muted:#9aa4c7;--text:#e8ecff;--accent:#7aa2ff;--border:#263151}
+*{box-sizing:border-box}html,body,#app{height:100%;margin:0}
 body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif;color:var(--text);background:var(--bg)}
-#app{display:grid;grid-template-columns:480px 1fr}
-.sidebar{padding:16px;border-right:1px solid var(--border);background:var(--panel);overflow:auto}
+#app{display:grid;grid-template-columns:420px 1fr}
+.sidebar{padding:14px;border-right:1px solid var(--border);background:var(--panel);overflow:auto}
 #map{height:100%;width:100%}
-h1{font-size:20px;margin:0 0 8px}
-h3{margin:0 0 8px}
-p{margin:0 0 8px}
-.muted{color:var(--muted)}
-.tiny{font-size:12px}
-.card{background:#0f1530;border:1px solid var(--border);border-radius:14px;padding:12px;margin:10px 0}
-.header{margin-bottom:6px}
-.row{display:flex;align-items:center}
-.row.gap{gap:8px}
-.row.spread{justify-content:space-between}
-.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
-.label{color:var(--muted);font-size:12px}
-.value{font-weight:600}
+h1{margin:0 0 8px} .muted{color:var(--muted)}
+.controls{display:flex;gap:8px;margin:8px 0}
 .btn{padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:#101735;color:var(--text);cursor:pointer}
 .btn.primary{background:var(--accent);border-color:transparent;color:#081022;font-weight:700}
-.btn.ghost{background:transparent}
-.btn:disabled{opacity:.5;cursor:not-allowed}
-.form{display:grid;gap:8px}
-.form label.block{display:block}
-.form textarea{width:100%;padding:8px;border-radius:10px;border:1px solid var(--border);background:#0f1538;color:var(--text)}
-.grid-2{grid-template-columns:1fr 1fr}
-.form label{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#0d1430;border:1px solid var(--border);padding:8px;border-radius:10px}
-.form input[type="time"]{background:#0f1538;border:1px solid var(--border);border-radius:8px;color:var(--text);padding:6px}
-.stop-list{display:grid;gap:10px}
-.stop{display:grid;gap:6px;padding:10px;border:1px solid var(--border);border-radius:12px;background:#0d1430}
-.stop .grid{display:grid;grid-template-columns:1fr 90px 100px 100px 90px 36px;gap:6px;align-items:center}
-.stop input[type="text"], .stop input[type="time"], .stop input[type="number"]{width:100%;padding:6px;border-radius:8px;border:1px solid var(--border);background:#0f1538;color:var(--text)}
-.stop .coords{font-size:12px;color:var(--muted)}
-.stop .del{background:transparent;border:1px solid var(--border);border-radius:8px;height:32px;width:32px;cursor:pointer}
-.stop .del:hover{border-color:#ff7a8a;color:#ff7a8a}
-.links a{color:var(--accent-2);text-decoration:none}
-.leaflet-container{background:#0a0f22}
-.leaflet-control-attribution{background:#0f1530 !important;color:var(--muted)}
-.leaflet-popup-content-wrapper{background:#0f1530;color:var(--text)}
-.leaflet-popup-tip{background:#0f1530}
+.card{background:#0f1530;border:1px solid var(--border);border-radius:12px;padding:10px;margin:10px 0}
+.stop-list{display:grid;gap:8px}
+.stop{display:grid;gap:6px;padding:8px;border:1px solid var(--border);border-radius:10px;background:#0d1430}
+.stop .grid{display:grid;grid-template-columns:1fr 90px 100px 100px 90px 32px;gap:6px;align-items:center}
+.stop input{background:#0f1538;border:1px solid var(--border);border-radius:8px;color:var(--text);padding:6px}
 .num-icon{background:transparent;border:none}
-.num-icon .bubble{
-  display:flex;align-items:center;justify-content:center;
-  width:26px;height:26px;border-radius:50%;
-  background:#1a2346;border:2px solid #91a5ff;color:#fff;font-weight:800;
-  box-shadow:0 1px 4px rgba(0,0,0,.35);
-}
+.num-icon .bubble{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#1a2346;border:2px solid #91a5ff;color:#fff;font-weight:800;box-shadow:0 1px 4px rgba(0,0,0,.35)}
 .num-icon .bubble.ghost{background:#19203d;border-color:#2a355f;color:#aab4da}
-.divider{border:none;border-top:1px solid var(--border);margin:8px 0}
-pre{white-space:pre-wrap;word-break:break-word;background:#0d1430;border:1px solid var(--border);border-radius:10px;padding:8px;color:#cfe3ff}

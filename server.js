@@ -1,3 +1,4 @@
+
 import 'dotenv/config';
 import express from 'express';
 import fetch from 'node-fetch';
@@ -10,30 +11,8 @@ app.use(express.json());
 
 // ---------- Boot ----------
 console.log('--- BOOT ---');
-console.log('ALLOWED_ORIGIN =', process.env.ALLOWED_ORIGIN || 'http://localhost:5173');
-console.log('PORT (env) =', process.env.PORT);
+console.log('PORT =', process.env.PORT);
 console.log('OPENAI key loaded?', !!process.env.OPENAI_API_KEY);
-
-// Safety
-process.on('unhandledRejection', e => console.error('[unhandledRejection]', e));
-process.on('uncaughtException', e => console.error('[uncaughtException]', e));
-
-// ---------- CORS ----------
-app.use((req, res, next) => {
-  const cfg = process.env.ALLOWED_ORIGIN || '*';
-  const origin = req.headers.origin || '';
-  const allowOrigin = cfg === '*' ? origin : cfg;
-  const allowCreds = cfg !== '*';
-
-  res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Origin', allowOrigin || '*');
-  if (allowCreds) res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') return res.sendStatus(200);
-  next();
-});
 
 // ---------- Static frontend ----------
 app.use(express.static(path.join(__dirname, 'public')));
@@ -48,9 +27,11 @@ app.post('/ai/interpret', async (req, res) => {
       return res.status(500).json({ error: 'Server missing OpenAI API key' });
     }
 
-    const systemPrompt = `You are a routing policy interpreter.
-You will receive persistent rules, ad-hoc rules, and current route context.
-Output JSON with routing priorities, constraints, and penalties.`;
+    const systemPrompt = `You are a routing policy interpreter. Output STRICT JSON only.
+Allowed keys:
+- priority: "urgent" | "timewindow" | "balanced"
+- avoid_road_names: string[]
+- urgent_weight, lateness_weight, wait_weight, avoid_road_penalty: numbers >= 0`;
 
     const userPrompt = `PERSISTENT RULES:\n${persistent}\n\nAD-HOC RULES:\n${adhoc}\n\nCONTEXT:\n${JSON.stringify(context)}`;
 
@@ -71,23 +52,22 @@ Output JSON with routing priorities, constraints, and penalties.`;
     });
 
     if (!r.ok) {
-      const errData = await r.text();
-      console.error(`[AI ERROR] OpenAI API responded with status ${r.status}`, errData);
-      return res.status(500).json({ error: `OpenAI API error ${r.status}`, details: errData });
+      const errText = await r.text();
+      console.error(`[AI ERROR] OpenAI API ${r.status}:`, errText);
+      return res.status(500).json({ error: `OpenAI API error ${r.status}`, details: errText });
     }
 
     const data = await r.json();
-    const content = data.choices?.[0]?.message?.content || '{}';
-    res.json({ ok: true, content });
-
+    const text = data.choices?.[0]?.message?.content || '{}';
+    const start = text.indexOf('{'); const end = text.lastIndexOf('}');
+    const obj = (start !== -1 && end !== -1) ? JSON.parse(text.slice(start, end + 1)) : {};
+    res.json(obj);
   } catch (err) {
     console.error('[AI ERROR] Unexpected', err);
-    res.status(500).json({ error: 'Unexpected AI server error', details: err.message || err });
+    res.status(500).json({ error: 'Unexpected AI server error', details: err.message || String(err) });
   }
 });
 
 // ---------- Start ----------
 const port = process.env.PORT || 5175;
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-});
+app.listen(port, () => console.log(`Server running on ${port}`));
