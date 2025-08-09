@@ -1,0 +1,93 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Route Optimizer — AI Rules</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <link rel="stylesheet" href="./style.css"/>
+</head>
+<body>
+  <div id="app">
+    <aside class="sidebar">
+      <header class="header">
+        <h1>Route Optimizer + AI</h1>
+        <p class="muted">Add stops, set constraints, then optimize. Use AI to interpret your rules (persistent + ad hoc).</p>
+      </header>
+
+      <section class="card">
+        <div class="row gap">
+          <button id="btnOptimize" class="btn primary">Optimize (Heuristic)</button>
+          <button id="btnAiOptimize" class="btn">AI Optimize (Persistent + Ad Hoc)</button>
+          <button id="btnClear" class="btn ghost">Clear</button>
+          <button id="btnExport" class="btn ghost" disabled>Export GPX</button>
+        </div>
+        <div class="stats-grid">
+          <div><div class="label">Stops</div><div id="stopCount" class="value">0</div></div>
+          <div><div class="label">Drive</div><div id="driveDuration" class="value">—</div></div>
+          <div><div class="label">Distance</div><div id="totalDistance" class="value">—</div></div>
+          <div><div class="label">Service</div><div id="serviceDuration" class="value">—</div></div>
+          <div><div class="label">Total ETA</div><div id="totalDuration" class="value">—</div></div>
+          <div><div class="label">Infeasible</div><div id="infeasibleCount" class="value">0</div></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3>Route Options</h3>
+        <div class="form grid-2">
+          <label><span>Round trip</span><input type="checkbox" id="roundTrip" /></label>
+          <label><span>Avoid Ferries</span><input type="checkbox" id="avoidFerries" /></label>
+          <label><span>Start time</span><input type="time" id="routeStart" value="08:00"/></label>
+          <label><span>Show numbers on markers</span><input type="checkbox" id="showNumbers" checked/></label>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="row spread"><h3>Stops</h3><small class="muted">Click map to add</small></div>
+        <div id="stopList" class="stop-list"></div>
+      </section>
+
+      <section class="card">
+        <h3>AI Tuning</h3>
+        <div class="form">
+          <label class="block">
+            <div class="label">Persistent rules (always applied)</div>
+            <textarea id="persistentPrompt" rows="4" placeholder="Example: If urgent delivery and timed delivery exist around same time, prioritize urgent"></textarea>
+          </label>
+          <div class="row gap">
+            <button id="btnSavePersistent" class="btn">Save Persistent</button>
+            <span id="persistStatus" class="muted tiny"></span>
+          </div>
+        </div>
+        <hr class="divider"/>
+        <div class="form">
+          <label class="block">
+            <div class="label">Ad hoc prompt (applies once)</div>
+            <textarea id="adHocPrompt" rows="3" placeholder="Example: Avoid I-35E; prefer Main St; prioritize time windows"></textarea>
+          </label>
+          <div class="row gap">
+            <button id="btnAiOptimize2" class="btn primary">Use AI + Optimize</button>
+            <span id="aiStatus" class="muted tiny"></span>
+          </div>
+          <details class="tiny">
+            <summary>AI parse (debug)</summary>
+            <pre id="aiPreview" class="tiny"></pre>
+          </details>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="links">
+          <a id="googleMapsLink" target="_blank" rel="noopener">Open in Google Maps</a>
+        </div>
+      </section>
+    </aside>
+
+    <main id="map"></main>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="./script.js"></script>
+</body>
+</html>

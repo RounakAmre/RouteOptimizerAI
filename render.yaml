@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: route-optimizer-ai
+    env: node
+    plan: free
+    buildCommand: "npm install"
+    startCommand: "node server.js"
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+    healthCheckPath: /
+    autoDeploy: true
+    # Optional: Set a fixed Node version if desired
+    # runtime: "node"
+    # nodeVersion: "18"
