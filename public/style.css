@@ -21,3 +21,5 @@ h1{margin:0 0 8px} .muted{color:var(--muted)} .tiny{font-size:12px}
 .num-icon .bubble{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#1a2346;border:2px solid #91a5ff;color:#fff;font-weight:800;box-shadow:0 1px 4px rgba(0,0,0,.35)}
 .num-icon .bubble.ghost{background:#19203d;border-color:#2a355f;color:#aab4da}
 a#googleMapsLink{color:#61d3a6;text-decoration:none}
+
+.stop input, .stop label, .stop button { pointer-events: auto; }

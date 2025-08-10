@@ -292,3 +292,20 @@ function esc(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;
 function attr(s){ return esc(s).replace(/"/g,'&quot;'); }
 
 window.addEventListener('load', initMap);
+
+// ---- Busy state helper ----
+function toggleBusy(isBusy){
+  const btns = [
+    ['#btnOptimize', 'Optimize'],
+    ['#btnAdhocOptimize', 'Optimize with Ad Hoc'],
+    ['#btnClear', 'Clear'],
+    ['#btnSavePersistent', 'Save Persistent']
+  ];
+  btns.forEach(([sel, label]) => {
+    const el = qs(sel);
+    if (!el) return;
+    el.disabled = isBusy;
+    if (sel === '#btnOptimize') el.textContent = isBusy ? 'Optimizing…' : label;
+    if (sel === '#btnAdhocOptimize') el.textContent = isBusy ? 'Optimizing…' : label;
+  });
+}
