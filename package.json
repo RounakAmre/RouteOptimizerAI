@@ -1,6 +1,6 @@
 
 {
-  "name": "route-optimizer-ai-postadjust-v2",
+  "name": "route-optimizer-twoflow",
   "version": "1.0.0",
   "private": true,
   "type": "module",

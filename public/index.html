@@ -4,48 +4,32 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Route Optimizer — AI Post-Adjust</title>
+  <title>Route Optimizer — Two-Flow</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
   <link rel="stylesheet" href="./style.css"/>
 </head>
 <body>
   <div id="app">
     <aside class="sidebar">
-      <h1>Route Optimizer — AI Post-Adjust</h1>
+      <h1>Route Optimizer — Two‑Flow</h1>
+
+      <!-- Top: ONLY two buttons -->
+      <div class="row gap top-buttons">
+        <button id="btnOptimize" class="btn primary">Optimize</button>
+        <button id="btnClear" class="btn ghost">Clear</button>
+      </div>
 
       <section class="card">
-        <div class="row gap">
-          <button id="btnOptimize" class="btn primary">1) Optimize (Heuristic)</button>
-          <button id="btnAiAdjust" class="btn">2) AI Post‑Adjust</button>
-          <button id="btnClear" class="btn ghost">Clear</button>
-        </div>
-        <div class="stats small">
-          <div><span>Stops:</span><b id="stopCount">0</b></div>
-          <div><span>Drive:</span><b id="driveDuration">—</b></div>
-          <div><span>Distance:</span><b id="totalDistance">—</b></div>
-          <div><span>Service:</span><b id="serviceDuration">—</b></div>
-          <div><span>Total ETA:</span><b id="totalDuration">—</b></div>
-        </div>
+        <h3>Persistent Prompt</h3>
+        <textarea id="persistentPrompt" rows="3" placeholder="Always‑applied rules (e.g., 'Prioritize urgent over timed near-conflict; avoid I‑820 TEXpress')."></textarea>
+        <div class="row gap"><button id="btnSavePersistent" class="btn">Save Persistent</button><span id="persistStatus" class="tiny muted"></span></div>
       </section>
 
       <section class="card">
-        <h3>Options</h3>
-        <label class="row spread"><span>Round trip</span><input type="checkbox" id="roundTrip"></label>
-        <label class="row spread"><span>Start time</span><input type="time" id="routeStart" value="08:00"></label>
-        <label class="row spread"><span>Show numbers</span><input type="checkbox" id="showNumbers" checked></label>
-      </section>
-
-      <section class="card">
-        <h3>AI Prompts</h3>
-        <label>Persistent (saved)</label>
-        <textarea id="persistentPrompt" rows="3" placeholder="e.g., If urgent and timed are near same time, prioritize urgent"></textarea>
-        <button id="btnSavePersistent" class="btn">Save Persistent</button>
-        <label>Ad hoc (one‑time)</label>
-        <textarea id="adHocPrompt" rows="3" placeholder="e.g., Avoid I-820 TEXpress"></textarea>
-        <button id="btnSaveAdhoc" class="btn">Save Ad Hoc</button>
-        <div class="tiny muted">AI parse:</div>
-        <pre id="aiPreview" class="tiny"></pre>
-        <div id="aiStatus" class="tiny muted"></div>
+        <h3>Ad Hoc Prompt</h3>
+        <textarea id="adHocPrompt" rows="3" placeholder="One‑time rules (e.g., 'Avoid Tom Landry Freeway; priority: urgent')"></textarea>
+        <div class="row gap"><button id="btnAdhocOptimize" class="btn">Optimize with Ad Hoc</button><span id="adhocStatus" class="tiny muted"></span></div>
+        <details class="tiny"><summary>AI parse (debug)</summary><pre id="aiPreview" class="tiny"></pre></details>
       </section>
 
       <section class="card">
@@ -54,11 +38,11 @@
       </section>
 
       <section class="card">
-        <h3>Legs with avoided roads</h3>
-        <ul id="avoidHits" class="tiny"></ul>
-      </section>
-
-      <section class="card">
+        <div class="stats small">
+          <div><span>Stops:</span><b id="stopCount">0</b></div>
+          <div><span>Drive:</span><b id="driveDuration">—</b></div>
+          <div><span>Distance:</span><b id="totalDistance">—</b></div>
+        </div>
         <a id="googleMapsLink" target="_blank" rel="noopener">Open in Google Maps</a>
       </section>
     </aside>

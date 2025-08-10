@@ -10,6 +10,8 @@ h1{margin:0 0 8px} .muted{color:var(--muted)} .tiny{font-size:12px}
 .row{display:flex;align-items:center}.gap{gap:8px}.spread{justify-content:space-between}
 .btn{padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:#101735;color:var(--text);cursor:pointer}
 .btn.primary{background:var(--accent);border-color:transparent;color:#081022;font-weight:700}
+.btn.ghost{background:transparent}
+.top-buttons{margin-bottom:8px}
 .stop-list{display:grid;gap:8px}
 .stop{display:grid;gap:6px;padding:8px;border:1px solid var(--border);border-radius:10px;background:#0d1430}
 .stop .grid{display:grid;grid-template-columns:1fr 90px 100px 100px 90px 36px;gap:6px;align-items:center}
@@ -18,4 +20,4 @@ h1{margin:0 0 8px} .muted{color:var(--muted)} .tiny{font-size:12px}
 .num-icon{background:transparent;border:none}
 .num-icon .bubble{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#1a2346;border:2px solid #91a5ff;color:#fff;font-weight:800;box-shadow:0 1px 4px rgba(0,0,0,.35)}
 .num-icon .bubble.ghost{background:#19203d;border-color:#2a355f;color:#aab4da}
-ul#avoidHits{list-style:disc;padding-left:18px;margin:0}
+a#googleMapsLink{color:#61d3a6;text-decoration:none}

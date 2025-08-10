@@ -1,19 +1,12 @@
 
-/* Flow:
- * 1) Heuristic optimization to get base order.
- * 2) AI Post-Adjust: stable-partition urgent, then local adjacent swaps to reduce avoided-road legs.
- * 3) Draw final route in that order only. For each leg, try OSRM alternatives and pick the route
- *    with least avoided-road usage + travel time score.
- */
 const state = {
   map: null,
   stops: [],
-  routeLine: null,
-  lastRoute: null,
   baseOrder: null,
   finalOrder: null,
-  pairMetaCache: new Map(),
+  routeLine: null,
   lastCacheBuster: null,
+  pairMetaCache: new Map()
 };
 
 function initMap(){
@@ -22,77 +15,62 @@ function initMap(){
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(state.map);
   state.map.on('click', e => addStop(e.latlng));
 
-  q('#btnOptimize').addEventListener('click', optimizeHeuristic);
-  q('#btnAiAdjust').addEventListener('click', aiPostAdjust);
-  q('#btnClear').addEventListener('click', clearAll);
-
-  q('#btnSavePersistent').addEventListener('click', ()=>{
-    localStorage.setItem('persistentPrompt', q('#persistentPrompt').value || '');
-    toast('Persistent saved');
-  });
-  q('#btnSaveAdhoc').addEventListener('click', ()=>{
-    localStorage.setItem('adHocPrompt', q('#adHocPrompt').value || '');
-    toast('Ad hoc saved');
+  qs('#btnOptimize').addEventListener('click', () => mainOptimize(false));
+  qs('#btnAdhocOptimize').addEventListener('click', () => mainOptimize(true));
+  qs('#btnClear').addEventListener('click', clearAll);
+  qs('#btnSavePersistent').addEventListener('click', () => {
+    localStorage.setItem('persistentPrompt', qs('#persistentPrompt').value || '');
+    qs('#persistStatus').textContent = 'Saved';
+    setTimeout(()=>qs('#persistStatus').textContent='', 1200);
   });
 
-  q('#persistentPrompt').value = localStorage.getItem('persistentPrompt') || '';
-  q('#adHocPrompt').value = localStorage.getItem('adHocPrompt') || '';
+  qs('#persistentPrompt').value = localStorage.getItem('persistentPrompt') || '';
+  qs('#adHocPrompt').value = localStorage.getItem('adHocPrompt') || '';
 
   render();
 }
-
-function baseIcon(h, ghost=false){ return L.divIcon({className:'num-icon', html:`<div class="bubble ${ghost?'ghost':''}">${h}</div>`, iconSize:[26,26], iconAnchor:[13,26], popupAnchor:[0,-28]}); }
 
 function addStop(latlng){
   const i = state.stops.length;
-  const m = L.marker(latlng,{draggable:true,icon:baseIcon('•',true)}).addTo(state.map);
-  m.on('dragend', render);
-  const s = { marker: m, name: `Stop ${i+1}`, minutes: 5, urgent: false, twStart: null, twEnd: null };
-  state.stops.push(s);
-  m.bindPopup(()=> popupHtml(s));
+  const marker = L.marker(latlng,{draggable:true,icon:iconBubble('•', true)}).addTo(state.map);
+  marker.on('dragend', render);
+  const stop = { marker, name: `Stop ${i+1}`, minutes: 5, urgent: false };
+  state.stops.push(stop);
+  marker.bindPopup(() => popupHtml(stop));
   render();
-}
-
-function popupHtml(s){
-  const {lat,lng} = s.marker.getLatLng();
-  const tw = (s.twStart!=null&&s.twEnd!=null) ? `${secToHHMM(s.twStart)}–${secToHHMM(s.twEnd)}` : 'any time';
-  return `<b>${esc(s.name)}</b><br/>${lat.toFixed(5)}, ${lng.toFixed(5)}<br/>${s.urgent?'🚩 Urgent':'Normal'} · ${s.minutes} min · ${tw}`;
 }
 
 function clearAll(){
   state.stops.forEach(s => state.map.removeLayer(s.marker));
-  state.stops = [];
-  state.baseOrder = null; state.finalOrder = null;
+  state.stops = []; state.baseOrder = null; state.finalOrder = null;
   if (state.routeLine){ state.map.removeLayer(state.routeLine); state.routeLine = null; }
-  q('#avoidHits').innerHTML='';
   render();
 }
 
 function render(){
-  const list = q('#stopList'); list.innerHTML='';
-  q('#stopCount').textContent = state.stops.length;
-
-  state.stops.forEach((s,i)=>{
-    const r = document.createElement('div'); r.className='stop';
+  const list = qs('#stopList'); list.innerHTML='';
+  qs('#stopCount').textContent = state.stops.length;
+  state.stops.forEach((s,i) => {
     const {lat,lng} = s.marker.getLatLng();
-    r.innerHTML = `<div class="grid">
+    const row = document.createElement('div'); row.className='stop';
+    row.innerHTML = `<div class="grid">
       <input type="text" value="${attr(s.name)}" data-i="${i}" data-f="name" placeholder="Stop name"/>
       <input type="number" min="0" step="1" value="${s.minutes}" data-i="${i}" data-f="minutes"/>
-      <input type="time" value="${s.twStart!=null?secToHHMM(s.twStart):''}" data-i="${i}" data-f="twStart"/>
-      <input type="time" value="${s.twEnd!=null?secToHHMM(s.twEnd):''}" data-i="${i}" data-f="twEnd"/>
       <label><input type="checkbox" ${s.urgent?'checked':''} data-i="${i}" data-f="urgent"/> Urgent</label>
+      <input type="text" value="${lat.toFixed(5)}" disabled />
+      <input type="text" value="${lng.toFixed(5)}" disabled />
       <button class="del" data-i="${i}">✕</button>
-    </div>
-    <div class="tiny muted">${lat.toFixed(5)}, ${lng.toFixed(5)}</div>`;
-    list.appendChild(r);
+    </div>`;
+    list.appendChild(row);
   });
-
   list.querySelectorAll('input,button').forEach(el => {
-    if (el.tagName === 'BUTTON') el.addEventListener('click', onDelete);
+    if (el.tagName==='BUTTON') el.addEventListener('click', onDelete);
     else { el.addEventListener('input', onEdit); el.addEventListener('change', onEdit); }
   });
 
   refreshMarkerNumbers();
+  updateStats();
+  updateGmapsLink();
 }
 
 function onDelete(e){
@@ -103,218 +81,139 @@ function onDelete(e){
   render();
 }
 function onEdit(e){
-  const i = +e.target.dataset.i;
-  const f = e.target.dataset.f;
+  const i = +e.target.dataset.i, f = e.target.dataset.f;
   if (f==='name') state.stops[i].name = e.target.value;
-  if (f==='minutes') state.stops[i].minutes = Math.max(0, +e.target.value||0);
+  if (f==='minutes') state.stops[i].minutes = Math.max(0, +e.target.value || 0);
   if (f==='urgent') state.stops[i].urgent = e.target.checked;
-  if (f==='twStart') state.stops[i].twStart = e.target.value ? hhmmToSec(e.target.value) : null;
-  if (f==='twEnd') state.stops[i].twEnd = e.target.value ? hhmmToSec(e.target.value) : null;
-  state.stops[i].marker.setPopupContent(()=> popupHtml(state.stops[i]));
+  state.stops[i].marker.setPopupContent(() => popupHtml(state.stops[i]));
   render();
 }
 
-async function optimizeHeuristic(){
-  if (state.stops.length < 2) return toast('Add at least 2 stops');
+function popupHtml(s){
+  const {lat,lng} = s.marker.getLatLng();
+  return `<b>${esc(s.name)}</b><br/>${lat.toFixed(5)}, ${lng.toFixed(5)}<br/>${s.urgent?'🚩 Urgent':'Normal'} · ${s.minutes} min`;
+}
+
+async function mainOptimize(useAdhoc){
+  if (state.stops.length < 2) return alert('Add at least 2 stops');
   toggleBusy(true);
-  try {
+  try{
+    // 1) Heuristic baseline
     const coords = state.stops.map(s => s.marker.getLatLng());
     const coordStr = coords.map(c => `${c.lng},${c.lat}`).join(';');
     const tRes = await fetch(`https://router.project-osrm.org/table/v1/driving/${coordStr}?annotations=duration`);
     if (!tRes.ok) throw new Error('Matrix request failed');
     const matrix = await tRes.json();
     const dur = matrix.durations;
-    const startSec = hhmmToSec(q('#routeStart').value || '08:00');
-    const built = buildGreedy(dur, startSec);
-    state.baseOrder = built.order;
-    await drawWholeRouteSimple(state.baseOrder);
-    toast('Heuristic route created');
-  } catch(e){ alert('Optimize failed: ' + e.message); }
-  finally{ toggleBusy(false); render(); }
-}
+    const base = greedyOrder(dur);
+    state.baseOrder = base.slice();
 
-// simple greedy
-function buildGreedy(dur, startSec){
-  const N = state.stops.length;
-  const order = [0]; let current = 0;
-  const remaining = new Set(Array.from({length:N}, (_,i)=>i).filter(i=>i!==0));
-  while (remaining.size){
-    let best=null,bestT=Infinity;
-    remaining.forEach(i=>{ const t=dur[current][i]; if (t < bestT){ bestT=t; best=i; } });
-    order.push(best); remaining.delete(best); current=best;
+    // 2) Decide whether to post-reorder
+    const persistent = (qs('#persistentPrompt').value || '').trim();
+    const adhoc = useAdhoc ? (qs('#adHocPrompt').value || '').trim() : '';
+    if (useAdhoc) localStorage.setItem('adHocPrompt', adhoc);
+
+    if (!persistent && !adhoc){
+      state.finalOrder = base.slice();
+      await drawRouteForOrder(state.finalOrder);
+      qs('#aiPreview').textContent = '';
+      return;
+    }
+
+    // 3) Ask AI for rules then reorder only affected stops
+    const ai = await getAIRules(persistent, adhoc);
+    qs('#aiPreview').textContent = JSON.stringify(ai, null, 2);
+    const reordered = await reorderWithAI(base, ai);
+    state.finalOrder = reordered;
+    await drawRouteForOrder(state.finalOrder);
+
+  } catch(e){
+    alert('Optimize failed: ' + e.message);
+    console.error(e);
+  } finally {
+    toggleBusy(false);
+    render();
   }
-  if (q('#roundTrip').checked) order.push(order[0]);
-  return { order };
 }
 
-async function aiPostAdjust(){
-  if (!state.baseOrder) return toast('Run heuristic first');
-  toggleBusy(true);
-  try{
-    const ai = await getAIRules();
-    // clear cache if rules changed
-    if (state.lastCacheBuster !== ai.cache_buster){
-      state.pairMetaCache = new Map();
-      state.lastCacheBuster = ai.cache_buster;
-    }
-
-    let order = state.baseOrder.slice();
-    // 1) urgent stable partition
-    if (ai.priority === 'urgent'){
-      const urgent = order.filter(i => state.stops[i].urgent);
-      const normal = order.filter(i => !state.stops[i].urgent);
-      // keep start as first if exists
-      if (order[0] === 0){
-        order = [0, ...urgent.filter(i=>i!==0), ...normal.filter(i=>i!==0)];
-      } else {
-        order = [...urgent, ...normal];
-      }
-    }
-    // 2) local swaps to avoid avoided roads
-    if (ai.avoidRoadNames?.length){
-      order = await localSwapAvoid(order, ai);
-    }
-
-    state.finalOrder = order;
-    await drawWholeRouteAlternatives(order, ai); // check alternatives per leg to avoid roads
-    await listAvoidHits(order, ai.avoidRoadNames || []);
-    toast('AI post‑adjust applied');
-  } catch(e){ alert('AI adjust failed: ' + e.message); }
-  finally{ toggleBusy(false); render(); }
+// --- heuristic greedy NN starting from first stop (index 0)
+function greedyOrder(dur){
+  const N = state.stops.length;
+  const order = [0];
+  const remaining = new Set(Array.from({length:N}, (_,i)=>i).filter(i=>i!==0));
+  let current = 0;
+  while (remaining.size){
+    let best=null, bestT=Infinity;
+    remaining.forEach(i => { const t = dur[current][i]; if (t < bestT){ bestT=t; best=i; } });
+    order.push(best); remaining.delete(best); current = best;
+  }
+  return order;
 }
 
-async function localSwapAvoid(order, ai){
+// --- AI reorder: stable urgent-first + local swaps for avoided roads
+async function reorderWithAI(baseOrder, ai){
+  let order = baseOrder.slice();
+  if (ai.priority === 'urgent'){
+    const urgent = order.filter(i => state.stops[i].urgent);
+    const normal = order.filter(i => !state.stops[i].urgent);
+    // keep depot (0) first if present
+    if (order[0] === 0){
+      order = [0, ...urgent.filter(i=>i!==0), ...normal.filter(i=>i!==0)];
+    } else {
+      order = [...urgent, ...normal];
+    }
+  }
+  if (ai.avoidRoadNames?.length){
+    order = await localAdjSwaps(order, ai);
+  }
+  return order;
+}
+
+async function localAdjSwaps(order, ai){
+  const penalty = ai.weights?.avoidRoadPenalty ?? 1200;
   for (let k=0;k<order.length-1;k++){
     const a=order[k], b=order[k+1];
-    const uses = await legUsesAvoidedRoad(a,b, ai.avoidRoadNames);
-    if (!uses) continue;
-    if (k+2 < order.length){
-      const c = order[k+2];
-      const scoreAB = await legScoreByAlternatives(a,b,ai);
-      const scoreAC = await legScoreByAlternatives(a,c,ai) + await legScoreByAlternatives(c,b,ai);
-      const scoreABC = scoreAB + await legScoreByAlternatives(b,c,ai);
-      if (scoreAC < scoreABC){
-        const tmp = order[k+1]; order[k+1]=order[k+2]; order[k+2]=tmp;
-      }
+    const useAB = await legUsesAvoidedRoad(a,b, ai.avoidRoadNames);
+    if (!useAB) continue;
+    // Try swapping adjacent pair
+    const useBA = await legUsesAvoidedRoad(b,a, ai.avoidRoadNames);
+    if (useBA && !useAB) continue; // worse
+    if (!useBA && useAB){ // if swap reduces avoid usage, do it
+      const tmp = order[k]; order[k] = order[k+1]; order[k+1] = tmp;
+    } else {
+      // both use avoided; keep original (we're "minimal")
     }
   }
   return order;
 }
 
-// ==== Final map drawing ====
-
-// Draw entire route in fixed order via a single OSRM request (no alternatives)
-async function drawWholeRouteSimple(order){
+// --- Draw fixed order (no optimization)
+async function drawRouteForOrder(order){
   const coords = order.map(i => state.stops[i].marker.getLatLng());
   const orderedStr = coords.map(c => `${c.lng},${c.lat}`).join(';');
-  const url = `https://router.project-osrm.org/route/v1/driving/${orderedStr}?overview=full&geometries=geojson`;
-  const r = await fetch(url); const j = await r.json();
-  const geom = j.routes?.[0]?.geometry;
-  if (!geom) throw new Error('No route');
-  drawPolyline(geom.coordinates.map(([x,y])=>[y,x]));
-}
-
-function drawPolyline(latlngs){
+  const routeUrl = `https://router.project-osrm.org/route/v1/driving/${orderedStr}?overview=full&geometries=geojson`;
+  const r = await fetch(routeUrl);
+  if (!r.ok) throw new Error('Route request failed');
+  const data = await r.json();
+  const geom = data.routes?.[0]?.geometry;
+  if (!geom) throw new Error('No route found');
+  const latlngs = geom.coordinates.map(([x,y]) => [y,x]);
   if (state.routeLine) state.map.removeLayer(state.routeLine);
   state.routeLine = L.polyline(latlngs, {weight:5,opacity:.95}).addTo(state.map);
   state.map.fitBounds(state.routeLine.getBounds(), {padding:[30,30]});
-  refreshMarkerNumbers();
+  refreshMarkerNumbers(order);
 }
 
-// Build route by leg, try alternatives per leg, pick best for avoided roads
-async function drawWholeRouteAlternatives(order, ai){
-  const latlngsAll = [];
-  for (let k=0;k<order.length-1;k++){
-    const a = order[k], b = order[k+1];
-    const seg = await bestLegGeometry(a, b, ai);
-    if (!seg.length) continue;
-    if (latlngsAll.length) seg.shift(); // avoid duplicate join point
-    latlngsAll.push(...seg);
-  }
-  if (!latlngsAll.length) throw new Error('No route segments');
-  drawPolyline(latlngsAll);
-}
-
-async function bestLegGeometry(aIdx, bIdx, ai){
-  const A = state.stops[aIdx].marker.getLatLng();
-  const B = state.stops[bIdx].marker.getLatLng();
-  const url = `https://router.project-osrm.org/route/v1/driving/${A.lng},${A.lat};${B.lng},${B.lat}?overview=full&steps=true&alternatives=true&geometries=geojson`;
-  const r = await fetch(url); if (!r.ok) return [];
-  const j = await r.json();
-  const routes = j.routes || [];
-  if (!routes.length) return [];
-
-  // choose by (duration + penalty if uses avoided roads)
-  let best = null, bestScore = Infinity;
-  for (const rt of routes){
-    const steps = rt.legs?.[0]?.steps || [];
-    const uses = stepsUseAvoid(steps, ai.avoidRoadNames || []);
-    const duration = rt.duration || 0;
-    const penalty = uses ? (ai.weights?.avoidRoadPenalty || 1200) : 0;
-    const score = duration + penalty;
-    if (score < bestScore){ best=rt; bestScore=score; }
-  }
-  const coords = best.geometry.coordinates.map(([x,y])=>[y,x]);
-  return coords;
-}
-
-function stepsUseAvoid(steps, avoidList){
-  const norm = s => String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'').replace(/1(?=\d{2,})/g,'i');
-  const hay = steps.map(s => (s.name||'') + (s.ref ? ' '+s.ref : '')).join('|');
-  const H = norm(hay);
-  return avoidList.some(raw => {
-    const q = norm(raw);
-    return q.length >= 4 && H.includes(q);
-  });
-}
-
-async function listAvoidHits(order, avoidList){
-  const ul = q('#avoidHits'); ul.innerHTML='';
-  if (!avoidList?.length) return;
-  for (let k=0;k<order.length-1;k++){
-    const a = order[k], b = order[k+1];
-    const A = state.stops[a].marker.getLatLng();
-    const B = state.stops[b].marker.getLatLng();
-    const url = `https://router.project-osrm.org/route/v1/driving/${A.lng},${A.lat};${B.lng},${B.lat}?steps=true&overview=false`;
-    try{
-      const r = await fetch(url); if (!r.ok) continue;
-      const j = await r.json();
-      const steps = j.routes?.[0]?.legs?.[0]?.steps || [];
-      if (stepsUseAvoid(steps, avoidList)){
-        const li = document.createElement('li');
-        li.textContent = `Leg ${k+1}: ${state.stops[a].name} → ${state.stops[b].name}`;
-        ul.appendChild(li);
-      }
-    }catch{}
-  }
-}
-
-// === AI client ===
-async function getAIRules(){
-  const persistent = (q('#persistentPrompt').value || '').trim();
-  const adhoc = (q('#adHocPrompt').value || '').trim();
-  localStorage.setItem('persistentPrompt', persistent);
-  localStorage.setItem('adHocPrompt', adhoc);
+// --- AI client ---
+async function getAIRules(persistent, adhoc){
   const context = { stops: state.stops.map((s,i)=>({ idx:i, name:s.name, urgent:!!s.urgent, minutes:s.minutes||0 })) };
-  q('#aiStatus').textContent = 'Contacting AI…';
-  try{
-    const res = await fetch('/ai/interpret',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ persistent, adhoc, context }) });
-    const data = await res.json();
-    const ai = normalizeAIRules(data);
-    if (state.lastCacheBuster !== ai.cache_buster){
-      state.pairMetaCache = new Map();
-      state.lastCacheBuster = ai.cache_buster;
-    }
-    q('#aiPreview').textContent = JSON.stringify(ai, null, 2);
-    q('#aiStatus').textContent = 'AI rules applied';
-    setTimeout(()=> q('#aiStatus').textContent = '', 1500);
-    return ai;
-  } catch(e){
-    q('#aiStatus').textContent = 'AI offline → using fallback';
-    const fb = fallbackInterpret(persistent + '\n' + adhoc);
-    q('#aiPreview').textContent = JSON.stringify(fb, null, 2);
-    return fb;
-  }
+  const res = await fetch('/ai/interpret', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ persistent, adhoc, context })
+  });
+  if (!res.ok) throw new Error('AI server error');
+  const obj = await res.json();
+  return normalizeAIRules(obj);
 }
 
 function normalizeAIRules(r){
@@ -326,6 +225,7 @@ function normalizeAIRules(r){
   let lateness = +pick('lateness_weight','lateness', 1.0);
   let wait = +pick('wait_weight','wait', 0.1);
   let avoidRoadPenalty = +pick('avoid_road_penalty','avoidRoadPenalty', 1200);
+  // clamp minimums
   if (!Number.isFinite(avoidRoadPenalty) || avoidRoadPenalty < 300) avoidRoadPenalty = 1200;
   if (!Number.isFinite(urgent) || urgent <= 0) urgent = 1;
   if (!Number.isFinite(lateness) || lateness <= 0) lateness = 1;
@@ -333,32 +233,62 @@ function normalizeAIRules(r){
   return { priority, avoidRoadNames, weights: { urgent, lateness, wait, avoidRoadPenalty }, cache_buster: r.cache_buster || Date.now() };
 }
 
-function fallbackInterpret(text){
-  const avoid = [];
-  const m = text.match(/avoid\s+([^\n]+)/ig);
-  if (m){ m.forEach(line => {
-    const names = line.replace(/avoid\s+/i,'').split(/[;,]| and /i).map(s=>s.trim()).filter(Boolean);
-    avoid.push(...names);
-  }); }
-  return normalizeAIRules({ priority:'urgent', avoid_road_penalty:1200, avoid_road_names: avoid });
+// --- Avoid road detection (fuzzy)
+async function legUsesAvoidedRoad(aIdx, bIdx, avoidList){
+  if (!avoidList?.length) return false;
+  const A = state.stops[aIdx].marker.getLatLng();
+  const B = state.stops[bIdx].marker.getLatLng();
+  const url = `https://router.project-osrm.org/route/v1/driving/${A.lng},${A.lat};${B.lng},${B.lat}?steps=true&overview=false`;
+  const norm = s => String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'').replace(/1(?=\d{2,})/g,'i');
+  try{
+    const r = await fetch(url); if (!r.ok) return false;
+    const j = await r.json();
+    const steps = j.routes?.[0]?.legs?.[0]?.steps || [];
+    const hay = steps.map(s=> (s.name||'') + (s.ref? ' '+s.ref : '')).join('|');
+    const H = norm(hay);
+    return avoidList.some(raw => {
+      const q = norm(raw);
+      return q.length >= 4 && H.includes(q);
+    });
+  }catch{ return false; }
 }
 
-// === helpers ===
-function refreshMarkerNumbers(){
-  const show = q('#showNumbers').checked;
-  const order = state.finalOrder ?? state.baseOrder;
-  if (!order || !show){ state.stops.forEach(s => s.marker.setIcon(baseIcon('•',true))); return; }
-  order.forEach((idx,k)=>{
-    const dup = (k===order.length-1) && (order[0]===idx) && order.length>1;
-    const label = dup ? '⮌' : String(k+1);
-    state.stops[idx].marker.setIcon(baseIcon(label,false));
+// --- UI helpers ---
+function updateStats(){
+  const drive = state.routeLine ? state.routeLine : null;
+  // We do not re-calc durations here; just keep placeholders
+  qs('#driveDuration').textContent = state.routeLine ? '—' : '—';
+  qs('#totalDistance').textContent = state.routeLine ? '—' : '—';
+}
+function updateGmapsLink(){
+  const order = state.finalOrder ?? state.baseOrder ?? state.stops.map((_,i)=>i);
+  const coords = order.map(i => state.stops[i].marker.getLatLng());
+  const link = gmapsLink(coords);
+  const a = qs('#googleMapsLink');
+  if (coords.length >= 2){ a.href = link; a.removeAttribute('disabled'); }
+  else { a.removeAttribute('href'); a.setAttribute('disabled','true'); }
+}
+function gmapsLink(coords){
+  if (coords.length<2) return '#';
+  const base='https://www.google.com/maps/dir/?api=1';
+  const origin=`&origin=${coords[0].lat},${coords[0].lng}`;
+  const dest=`&destination=${coords[coords.length-1].lat},${coords[coords.length-1].lng}`;
+  const waypoints=coords.slice(1,-1).map(c=>`${c.lat},${c.lng}`).join('|');
+  return base + origin + dest + '&travelmode=driving&waypoints=' + encodeURIComponent(waypoints);
+}
+function refreshMarkerNumbers(orderOpt){
+  const order = orderOpt || state.finalOrder || state.baseOrder;
+  if (!order){ state.stops.forEach(s=>s.marker.setIcon(iconBubble('•',true))); return; }
+  order.forEach((idx, k) => {
+    const label = String(k+1);
+    state.stops[idx].marker.setIcon(iconBubble(label,false));
   });
 }
-function q(s){ return document.querySelector(s); }
+function iconBubble(html, ghost=false){
+  return L.divIcon({ className:'num-icon', html:`<div class="bubble ${ghost?'ghost':''}">${html}</div>`, iconSize:[26,26], iconAnchor:[13,26], popupAnchor:[0,-28] });
+}
+function qs(sel){ return document.querySelector(sel); }
 function esc(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function attr(s){ return esc(s).replace(/"/g,'&quot;'); }
-function hhmmToSec(str){ const [h,m]=str.split(':').map(Number); return (h*3600+m*60)|0; }
-function secToHHMM(sec){ sec=Math.max(0,Math.floor(sec)); const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60); return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'); }
-function toast(msg){ q('#aiStatus').textContent = msg; setTimeout(()=> q('#aiStatus').textContent = '', 1400); }
 
 window.addEventListener('load', initMap);
