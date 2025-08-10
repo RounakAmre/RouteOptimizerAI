@@ -1,7 +1,7 @@
 
 services:
   - type: web
-    name: route-optimizer-ai
+    name: route-optimizer-ai-postadjust-v2
     env: node
     plan: starter
     buildCommand: "npm install"

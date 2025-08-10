@@ -1,6 +1,6 @@
 
 {
-  "name": "route-optimizer-ai-persist",
+  "name": "route-optimizer-ai-postadjust-v2",
   "version": "1.0.0",
   "private": true,
   "type": "module",
