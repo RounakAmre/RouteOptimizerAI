@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Route Optimizer — Two-Flow</title>
+  <title>Route Optimizer — Two‑Flow</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
   <link rel="stylesheet" href="./style.css"/>
 </head>
@@ -12,8 +12,6 @@
   <div id="app">
     <aside class="sidebar">
       <h1>Route Optimizer — Two‑Flow</h1>
-
-      <!-- Top: ONLY two buttons -->
       <div class="row gap top-buttons">
         <button id="btnOptimize" class="btn primary">Optimize</button>
         <button id="btnClear" class="btn ghost">Clear</button>
@@ -21,14 +19,20 @@
 
       <section class="card">
         <h3>Persistent Prompt</h3>
-        <textarea id="persistentPrompt" rows="3" placeholder="Always‑applied rules (e.g., 'Prioritize urgent over timed near-conflict; avoid I‑820 TEXpress')."></textarea>
-        <div class="row gap"><button id="btnSavePersistent" class="btn">Save Persistent</button><span id="persistStatus" class="tiny muted"></span></div>
+        <textarea id="persistentPrompt" rows="3" placeholder="Always‑applied rules (e.g., 'Prioritize urgent when near timed; avoid I‑820 TEXpress')."></textarea>
+        <div class="row gap">
+          <button id="btnSavePersistent" class="btn">Save Persistent</button>
+          <span id="persistStatus" class="tiny muted"></span>
+        </div>
       </section>
 
       <section class="card">
         <h3>Ad Hoc Prompt</h3>
         <textarea id="adHocPrompt" rows="3" placeholder="One‑time rules (e.g., 'Avoid Tom Landry Freeway; priority: urgent')"></textarea>
-        <div class="row gap"><button id="btnAdhocOptimize" class="btn">Optimize with Ad Hoc</button><span id="adhocStatus" class="tiny muted"></span></div>
+        <div class="row gap">
+          <button id="btnAdhocOptimize" class="btn">Optimize with Ad Hoc</button>
+          <span id="adhocStatus" class="tiny muted"></span>
+        </div>
         <details class="tiny"><summary>AI parse (debug)</summary><pre id="aiPreview" class="tiny"></pre></details>
       </section>
 
@@ -38,18 +42,12 @@
       </section>
 
       <section class="card">
-        <div class="stats small">
-          <div><span>Stops:</span><b id="stopCount">0</b></div>
-          <div><span>Drive:</span><b id="driveDuration">—</b></div>
-          <div><span>Distance:</span><b id="totalDistance">—</b></div>
-        </div>
         <a id="googleMapsLink" target="_blank" rel="noopener">Open in Google Maps</a>
       </section>
     </aside>
 
     <main id="map"></main>
   </div>
-
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="./script.js"></script>
 </body>
