@@ -1,78 +1,55 @@
 
-// Minimal local proxy for GPT‑3.5 to interpret routing rules.
-// Usage: set OPENAI_API_KEY in .env, then `npm install` && `npm start`.
-// Serves / (static files under /public) and POST /ai/interpret.
 import 'dotenv/config';
 import express from 'express';
+import fetch from 'node-fetch';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-app.use(express.json({ limit: '1mb' }));
-app.use(express.static('public'));
+app.use(express.json());
+
+// Static frontend
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.post('/ai/interpret', async (req, res) => {
   try {
     const { persistent = '', adhoc = '', context = {} } = req.body || {};
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) return res.status(400).json({ error: 'Missing OPENAI_API_KEY' });
-
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(500).json({ error: 'Missing OPENAI_API_KEY' });
+    }
     const system = `You are a routing policy interpreter. Output STRICT JSON only.
 Allowed keys:
-- priority: one of "urgent", "timewindow", "balanced"
-- avoid_road_names: array of road names to avoid exactly as strings
-- urgent_weight: number (>=0), higher prioritizes urgent stops more
-- lateness_weight: number (>=0), penalty per second late beyond window
-- wait_weight: number (>=0), penalty per second of waiting before a window
-- avoid_road_penalty: number (>=0), extra seconds added if a leg uses an avoided road
+- priority: "urgent" | "timewindow" | "balanced"
+- avoid_road_names: string[]
+- urgent_weight, lateness_weight, wait_weight, avoid_road_penalty: numbers >= 0`;
 
-Guidelines:
-- If the persistent rules say "if urgent delivery and timed delivery exist around same time, prioritize urgent", set priority="urgent".
-- If the ad hoc prompt says "avoid <road>", put the road name(s) in avoid_road_names.
-- Keep numbers small and practical; defaults: urgent_weight=1.0, lateness_weight=1.0, wait_weight=0.1, avoid_road_penalty=300.`;
+    const user = `PERSISTENT RULES:\n${persistent}\n\nAD HOC PROMPT:\n${adhoc}\n\nCONTEXT:\n${JSON.stringify(context)}`;
 
-    const user = {
-      role: 'user',
-      content: [
-        { type: 'text', text: `PERSISTENT RULES:\n${persistent}` },
-        { type: 'text', text: `AD HOC PROMPT:\n${adhoc}` },
-        { type: 'text', text: `CONTEXT (stops):\n${JSON.stringify(context, null, 2)}` },
-        { type: 'text', text: 'Return JSON only.' }
-      ]
-    };
-
-    // Use Chat Completions for GPT‑3.5
-    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+    const r = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        temperature: 0,
-        messages: [
-          { role: 'system', content: system },
-          user
-        ]
-      })
+      headers: { 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'gpt-3.5-turbo', temperature: 0, messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user }
+      ] })
     });
 
-    if (!resp.ok) {
-      const t = await resp.text();
-      return res.status(500).json({ error: 'OpenAI error', detail: t });
+    if (!r.ok) {
+      const txt = await r.text();
+      console.error('[OpenAI error]', r.status, txt);
+      return res.status(500).json({ error: `OpenAI ${r.status}`, details: txt });
     }
-    const data = await resp.json();
-    const text = data.choices?.[0]?.message?.content || '{}';
-
-    // Extract JSON
-    const jsonStart = text.indexOf('{');
-    const jsonEnd = text.lastIndexOf('}');
-    if (jsonStart === -1 || jsonEnd === -1) return res.status(200).json({ priority: 'balanced' });
-    const obj = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
-    return res.json(obj);
-  } catch (e) {
-    return res.status(500).json({ error: String(e) });
+    const data = await r.json();
+    const content = data.choices?.[0]?.message?.content || '{}';
+    const s = content.indexOf('{'), e = content.lastIndexOf('}');
+    const obj = (s !== -1 && e !== -1) ? JSON.parse(content.slice(s, e+1)) : {};
+    res.json(obj);
+  } catch (err) {
+    console.error('[AI ERROR]', err);
+    res.status(500).json({ error: 'AI server error', details: err.message || String(err) });
   }
 });
 
 const port = process.env.PORT || 5175;
-app.listen(port, () => console.log(`[AI Proxy] http://localhost:${port}`));
+app.listen(port, () => console.log('Server on', port));
