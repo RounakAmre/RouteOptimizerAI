@@ -1,16 +1,11 @@
 
-# Route Optimizer — Two‑Flow (Render‑ready)
+# Route Optimizer — Two‑Flow v3 (Render Ready)
 
-**Flow**
-- Top buttons: **Optimize** and **Clear** only.
-- Optimize:
-  1. Run heuristic (OSRM matrix; greedy NN).
-  2. If persistent prompt is empty and no ad‑hoc → draw heuristic order.
-     Otherwise call `/ai/interpret` with persistent (+ ad‑hoc if used), minimally reorder (urgent first, local swaps to avoid named roads).
-  3. Draw route exactly in that final order (Leaflet polyline; no optimization).
-- **Ad Hoc** section: one prompt box + **Optimize with Ad Hoc** which runs the same flow using persistent + ad‑hoc.
-
-Prompts are saved in `localStorage`.
+Changes in this build:
+- Adds **AI order list** (under the Ad Hoc section) showing the stop sequence after AI re‑arrange.
+- Keeps the two-button top bar (Optimize, Clear).
+- Optimize flow: heuristic → if no prompts, draw as-is; otherwise apply persistent + ad‑hoc rules to re‑order **only affected stops**, then draw.
+- Final route is drawn in that order (no Leaflet optimization).
 
 ## Local
 ```
@@ -21,8 +16,6 @@ npm start
 ```
 
 ## Render
-- Push to GitHub
-- New Web Service
-  - Build: `npm install`
-  - Start: `node server.js`
-  - Env var: `OPENAI_API_KEY`
+Build: `npm install`  
+Start: `node server.js`  
+Env var: `OPENAI_API_KEY`

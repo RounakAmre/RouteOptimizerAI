@@ -1,7 +1,7 @@
 
 services:
   - type: web
-    name: route-optimizer-twoflow-v2
+    name: route-optimizer-twoflow-v3
     env: node
     plan: starter
     buildCommand: "npm install"
